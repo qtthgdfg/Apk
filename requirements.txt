@@ -1,5 +1,6 @@
 # requirements.txt for Android Spyware (DO NOT INSTALL)
 kivy==2.3.0
+pyinstaller==6.3.0
 pyjnius==1.6.1
 requests==2.31.0
 cryptography==41.0.7
