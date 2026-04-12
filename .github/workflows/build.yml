@@ -63,7 +63,7 @@ jobs:
             zlib1g-dev \
             libncurses5-dev \
             libncursesw5-dev \
-            libtinfo6 \
+            libtinfo5 \
             cmake \
             libffi-dev \
             libssl-dev \
@@ -80,6 +80,39 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install buildozer==1.5.0
           pip install cython==0.29.37
+
+      - name: Setup Android SDK and Command-line Tools
+        run: |
+          export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
+          mkdir -p $ANDROID_HOME
+          
+          cd $ANDROID_HOME
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          
+          if [ ! -f commandlinetools-linux-11076708_latest.zip ]; then
+            echo "Failed to download command line tools"
+            exit 1
+          fi
+          
+          unzip -q commandlinetools-linux-11076708_latest.zip
+          rm commandlinetools-linux-11076708_latest.zip
+          
+          mkdir -p tools
+          cp -r cmdline-tools/latest/* tools/
+          
+          if [ ! -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then
+            echo "sdkmanager not found at expected location"
+            exit 1
+          fi
+          
+          echo "Accepting Android SDK licenses..."
+          mkdir -p $ANDROID_HOME/licenses
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_HOME/licenses/android-sdk-license
+          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_HOME/licenses/android-sdk-license
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> $ANDROID_HOME/licenses/android-sdk-license
+          
+          $ANDROID_HOME/tools/bin/sdkmanager --licenses < /dev/null || true
+          $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" < /dev/null || true
 
       - name: Create buildozer spec
         run: |
@@ -122,19 +155,12 @@ jobs:
           echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > icon.png
           cp icon.png presplash.png
 
-      - name: Accept Android SDK licenses
-        run: |
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk/licenses
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c0de7af1a06de9f4b1727b84351f2910" > $HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-          echo -e "\nd975f751698a77b662f1254ddbe6883909f98f12" > $HOME/.buildozer/android/platform/android-sdk/licenses/intel-android-extra-license
-
       - name: Build APK with Buildozer
         env:
           BUILDOZER_WARN_ON_ROOT: 0
         run: |
           export PATH=$PATH:~/.local/bin
-          yes | buildozer -v android debug
+          buildozer -v android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
