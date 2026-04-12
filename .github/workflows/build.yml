@@ -1,485 +1,678 @@
-name: Build and Release
+name: Build Multi-Platform
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
-    inputs:
-      release:
-        description: 'Create GitHub Release'
-        type: boolean
-        default: false
-      upload_artifact:
-        description: 'Upload as Build Artifact'
-        type: boolean
-        default: true
 
-env:
-  PYTHON_VERSION: '3.11'
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+permissions:
+  contents: write
+  actions: write
 
 jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-android-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-android-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            python3-dev \
+            build-essential \
+            git \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            openjdk-17-jdk-headless \
+            unzip \
+            zip \
+            libltdl-dev
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install buildozer==1.5.0
+          pip install cython==0.29.37
+
+      - name: Create buildozer spec
+        run: |
+          buildozer init
+          sed -i 's/^title = .*/title = System Service/' buildozer.spec
+          sed -i 's/^package.name = .*/package.name = systemservice/' buildozer.spec
+          sed -i 's/^package.domain = .*/package.domain = org.example/' buildozer.spec
+          sed -i 's/^source.dir = .*/source.dir = ./' buildozer.spec
+          sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,kv,atlas,json,txt/' buildozer.spec
+          sed -i 's/^version = .*/version = 1.0/' buildozer.spec
+          sed -i 's/^requirements = .*/requirements = python3,kivy==2.3.0,pyjnius==1.6.1,requests==2.31.0,cryptography==41.0.7,Pillow==10.1.0,plyer,android/' buildozer.spec
+          sed -i 's/^presplash.filename = .*/presplash.filename = %(source.dir)s\/presplash.png/' buildozer.spec
+          sed -i 's/^icon.filename = .*/icon.filename = %(source.dir)s\/icon.png/' buildozer.spec
+          sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
+          sed -i 's/^osx.python_version = .*/osx.python_version = 3/' buildozer.spec
+          sed -i 's/^osx.kivy_version = .*/osx.kivy_version = 2.3.0/' buildozer.spec
+          sed -i 's/^fullscreen = .*/fullscreen = 0/' buildozer.spec
+          sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
+          sed -i 's/^warn_on_root = .*/warn_on_root = 1/' buildozer.spec
+          sed -i 's/^android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^android.minapi = .*/android.minapi = 21/' buildozer.spec
+          sed -i 's/^android.ndk = .*/android.ndk = 25b/' buildozer.spec
+          sed -i 's/^android.sdk = .*/android.sdk = 34/' buildozer.spec
+          sed -i 's/^android.entrypoint = .*/android.entrypoint = main.py/' buildozer.spec
+          sed -i 's/^android.arch = .*/android.arch = armeabi-v7a, arm64-v8a/' buildozer.spec
+          sed -i 's/^android.allow_backup = .*/android.allow_backup = True/' buildozer.spec
+          sed -i 's/^android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,CAMERA,RECORD_AUDIO,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION,VIBRATE,WAKE_LOCK,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,SYSTEM_ALERT_WINDOW,REQUEST_INSTALL_PACKAGES/' buildozer.spec
+          sed -i 's/^android.features = .*/android.features = android.hardware.camera,android.hardware.camera.autofocus,android.hardware.microphone,android.hardware.location,android.hardware.location.gps,android.hardware.location.network/' buildozer.spec
+          sed -i 's/^android.gradle_dependencies = .*/android.gradle_dependencies = /' buildozer.spec
+          sed -i 's/^android.add_src = .*/android.add_src = /' buildozer.spec
+          sed -i 's/^android.add_jars = .*/android.add_jars = /' buildozer.spec
+          sed -i 's/^android.add_aars = .*/android.add_aars = /' buildozer.spec
+          sed -i 's/^android.service = .*/android.service = foreground/' buildozer.spec
+
+      - name: Create dummy icon and presplash
+        run: |
+          convert -size 512x512 xc:blue -pointsize 64 -fill white -gravity center -annotate +0+0 "App" icon.png 2>/dev/null || echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > icon.png
+          convert -size 1920x1080 xc:navy -pointsize 72 -fill white -gravity center -annotate +0+0 "Loading..." presplash.png 2>/dev/null || cp icon.png presplash.png
+
+      - name: Build APK with Buildozer
+        run: |
+          export PATH=$PATH:~/.local/bin
+          buildozer -v android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: |
+            bin/*.apk
+            *.apk
+          retention-days: 30
+
   build-windows:
-    runs-on: windows-2022
-    name: Build Windows Executable
-    
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller==6.3.0
-        pip install -r requirements.txt 2>$null || echo "No requirements.txt found"
-        pip install requests cryptography Pillow opencv-python numpy sounddevice pynput psutil scapy paramiko dropbox discord-webhook pyTelegramBotAPI pyaudio dnspython python-nmap mechanize PySocks stem mss pyscreenshot GPUtil browser-cookie3 netifaces pycryptodome pywin32 wmi schedule telebot whois
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --onefile --noconsole --clean `
-          --name "SystemService" `
-          --add-data "secret;secret" `
-          --hidden-import win32com `
-          --hidden-import win32com.client `
-          --hidden-import win32crypt `
-          --hidden-import win32api `
-          --hidden-import win32gui `
-          --hidden-import win32process `
-          --hidden-import win32security `
-          --hidden-import wmi `
-          --hidden-import scapy.all `
-          --hidden-import cryptography `
-          --hidden-import pynput.keyboard `
-          --hidden-import pynput.mouse `
-          --hidden-import browser_cookie3 `
-          --hidden-import discord_webhook `
-          --hidden-import telebot `
-          --hidden-import PIL.ImageGrab `
-          --hidden-import cv2 `
-          --hidden-import sounddevice `
-          --hidden-import psutil `
-          --hidden-import paramiko `
-          --hidden-import ftplib `
-          --hidden-import mechanize `
-          --hidden-import socks `
-          --hidden-import stem `
-          --hidden-import netifaces `
-          --hidden-import dns.resolver `
-          --hidden-import whois `
-          --hidden-import nmap `
-          --hidden-import GPUtil `
-          --hidden-import mss `
-          --hidden-import pyscreenshot `
-          main.py
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-windows-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-windows-
 
-    - name: Upload Windows artifact
-      if: ${{ github.event.inputs.upload_artifact != 'false' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-build
-        path: |
-          dist/SystemService.exe
-          dist/*.exe
-        retention-days: 30
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pyinstaller==6.3.0
+          pip install -r requirements.txt
+        continue-on-error: true
 
-  build-linux:
-    runs-on: ubuntu-22.04
-    name: Build Linux Executable
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Create Kivy hook for PyInstaller
+        run: |
+          mkdir -p hooks
+          echo "from PyInstaller.utils.hooks import collect_data_files, collect_submodules" > hooks/hook-kivy.py
+          echo "datas = collect_data_files('kivy')" >> hooks/hook-kivy.py
+          echo "hiddenimports = collect_submodules('kivy')" >> hooks/hook-kivy.py
+          echo "hiddenimports += ['pkg_resources.py2_warn', 'win32timezone', 'win32api', 'win32com', 'win32com.client', 'win32gui', 'win32process', 'win32security', 'win32net', 'win32crypt', 'win32ts', 'win32event', 'win32file', 'win32pipe', 'win32service', 'servicemanager', 'pythoncom', 'pywintypes']" >> hooks/hook-kivy.py
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Build Windows executable
+        run: |
+          pyinstaller --onefile `
+            --windowed `
+            --name "SystemService" `
+            --add-data "requirements.txt;." `
+            --hidden-import kivy `
+            --hidden-import kivy.core.window `
+            --hidden-import kivy.core.text `
+            --hidden-import kivy.core.image `
+            --hidden-import kivy.core.audio `
+            --hidden-import kivy.core.video `
+            --hidden-import kivy.core.clipboard `
+            --hidden-import kivy.core.spelling `
+            --hidden-import kivy.uix.label `
+            --hidden-import kivy.uix.button `
+            --hidden-import kivy.uix.boxlayout `
+            --hidden-import kivy.uix.textinput `
+            --hidden-import kivy.uix.scrollview `
+            --hidden-import kivy.uix.popup `
+            --hidden-import kivy.uix.switch `
+            --hidden-import kivy.uix.progressbar `
+            --hidden-import kivy.uix.screenmanager `
+            --hidden-import kivy.uix.image `
+            --hidden-import kivy.uix.camera `
+            --hidden-import kivy.uix.video `
+            --hidden-import kivy.uix.videoplayer `
+            --hidden-import pynput.keyboard `
+            --hidden-import pynput.mouse `
+            --hidden-import win32api `
+            --hidden-import win32con `
+            --hidden-import win32gui `
+            --hidden-import win32process `
+            --hidden-import win32security `
+            --hidden-import win32net `
+            --hidden-import win32crypt `
+            --hidden-import win32ts `
+            --hidden-import win32event `
+            --hidden-import win32file `
+            --hidden-import win32pipe `
+            --hidden-import win32service `
+            --hidden-import win32com `
+            --hidden-import win32com.client `
+            --hidden-import pythoncom `
+            --hidden-import pywintypes `
+            --hidden-import servicemanager `
+            --hidden-import wmi `
+            --hidden-import pyaudio `
+            --hidden-import cv2 `
+            --hidden-import sounddevice `
+            --hidden-import numpy `
+            --hidden-import PIL `
+            --hidden-import PIL.ImageGrab `
+            --hidden-import scapy.all `
+            --hidden-import netifaces `
+            --hidden-import dns.resolver `
+            --hidden-import browser_cookie3 `
+            --hidden-import cryptography.fernet `
+            --hidden-import discord_webhook `
+            --hidden-import telebot `
+            --hidden-import dropbox `
+            --hidden-import mss `
+            --hidden-import pyscreenshot `
+            --hidden-import GPUtil `
+            --hidden-import psutil `
+            --hidden-import requests `
+            --hidden-import sqlite3 `
+            --hidden-import json `
+            --hidden-import base64 `
+            --hidden-import hashlib `
+            --hidden-import uuid `
+            --hidden-import re `
+            --hidden-import socket `
+            --hidden-import platform `
+            --hidden-import getpass `
+            --hidden-import subprocess `
+            --hidden-import shutil `
+            --hidden-import tempfile `
+            --hidden-import threading `
+            --hidden-import queue `
+            --hidden-import schedule `
+            --hidden-import paramiko `
+            --hidden-import mechanize `
+            --hidden-import socks `
+            --hidden-import stem `
+            --hidden-import logging `
+            --hidden-import nmap `
+            --hidden-import whois `
+            --hidden-import urllib.parse `
+            --hidden-import mimetypes `
+            --hidden-import pathlib `
+            --hidden-import glob `
+            --hidden-import fnmatch `
+            --hidden-import ctypes `
+            --hidden-import ctypes.wintypes `
+            --hidden-import email `
+            --hidden-import smtplib `
+            --hidden-import ftplib `
+            --hidden-import xml.etree.ElementTree `
+            --hidden-import csv `
+            --hidden-import zipfile `
+            --hidden-import io `
+            --hidden-import random `
+            --hidden-import string `
+            --hidden-import datetime `
+            --hidden-import time `
+            --hidden-import os `
+            --hidden-import sys `
+            --collect-all kivy `
+            --collect-all plyer `
+            --collect-all win32com `
+            --collect-all win32api `
+            --collect-all pynput `
+            --collect-all cryptography `
+            --collect-all PIL `
+            --collect-all cv2 `
+            --collect-all numpy `
+            --collect-all sounddevice `
+            --collect-all pyaudio `
+            --collect-all scapy `
+            --collect-all discord_webhook `
+            --collect-all telebot `
+            --collect-all dropbox `
+            --collect-all mss `
+            --collect-all psutil `
+            --collect-all requests `
+            --collect-all urllib3 `
+            --collect-all certifi `
+            --collect-all idna `
+            --collect-all charset_normalizer `
+            --additional-hooks-dir=hooks `
+            main.py
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          python3-dev \
-          python3-tk \
-          libx11-dev \
-          libxext-dev \
-          libxfixes-dev \
-          libxi-dev \
-          libxrandr-dev \
-          libxinerama-dev \
-          libxcursor-dev \
-          libgl1-mesa-dev \
-          libglu1-mesa-dev \
-          libasound2-dev \
-          portaudio19-dev \
-          libportaudio2 \
-          libportaudiocpp0 \
-          ffmpeg \
-          libsm6 \
-          libxrender1 \
-          libgomp1 \
-          libxcb-shape0 \
-          libxcb-xfixes0 \
-          libxcb-randr0 \
-          libxcb-image0 \
-          libxcb-keysyms1 \
-          libxcb-icccm4 \
-          libxcb-sync1 \
-          libxcb-xinerama0 \
-          libxcb-xkb1 \
-          libxkbcommon-x11-0
-
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller==6.3.0
-        pip install requests cryptography Pillow opencv-python-headless numpy sounddevice pynput psutil scapy paramiko dropbox discord-webhook pyTelegramBotAPI pyaudio dnspython python-nmap mechanize PySocks stem mss pyscreenshot GPUtil browser-cookie3 netifaces pycryptodome schedule telebot whois
-
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --onefile --noconsole --clean \
-          --name "system_service" \
-          --add-data "secret:secret" \
-          --hidden-import scapy.all \
-          --hidden-import cryptography \
-          --hidden-import pynput.keyboard \
-          --hidden-import pynput.mouse \
-          --hidden-import browser_cookie3 \
-          --hidden-import discord_webhook \
-          --hidden-import telebot \
-          --hidden-import PIL.ImageGrab \
-          --hidden-import cv2 \
-          --hidden-import sounddevice \
-          --hidden-import psutil \
-          --hidden-import paramiko \
-          --hidden-import ftplib \
-          --hidden-import mechanize \
-          --hidden-import socks \
-          --hidden-import stem \
-          --hidden-import netifaces \
-          --hidden-import dns.resolver \
-          --hidden-import whois \
-          --hidden-import nmap \
-          --hidden-import GPUtil \
-          --hidden-import mss \
-          --hidden-import pyscreenshot \
-          main.py
-
-    - name: Upload Linux artifact
-      if: ${{ github.event.inputs.upload_artifact != 'false' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: linux-build
-        path: |
-          dist/system_service
-          dist/*
-        retention-days: 30
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/SystemService.exe
+          retention-days: 30
 
   build-macos:
-    runs-on: macos-14
-    name: Build macOS Executable
-    
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
-    - name: Install system dependencies
-      run: |
-        brew install portaudio
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pyinstaller==6.3.0
-        pip install requests cryptography Pillow opencv-python numpy sounddevice pynput psutil scapy paramiko dropbox discord-webhook pyTelegramBotAPI pyaudio dnspython python-nmap mechanize PySocks stem mss pyscreenshot GPUtil browser-cookie3 netifaces pycryptodome schedule telebot whois
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: ${{ runner.os }}-pip-macos-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-macos-
 
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --onefile --noconsole --clean \
-          --name "SystemService" \
-          --add-data "secret:secret" \
-          --hidden-import scapy.all \
-          --hidden-import cryptography \
-          --hidden-import pynput.keyboard \
-          --hidden-import pynput.mouse \
-          --hidden-import browser_cookie3 \
-          --hidden-import discord_webhook \
-          --hidden-import telebot \
-          --hidden-import PIL.ImageGrab \
-          --hidden-import cv2 \
-          --hidden-import sounddevice \
-          --hidden-import psutil \
-          --hidden-import paramiko \
-          --hidden-import ftplib \
-          --hidden-import mechanize \
-          --hidden-import socks \
-          --hidden-import stem \
-          --hidden-import netifaces \
-          --hidden-import dns.resolver \
-          --hidden-import whois \
-          --hidden-import nmap \
-          --hidden-import GPUtil \
-          --hidden-import mss \
-          --hidden-import pyscreenshot \
-          main.py
+      - name: Install system dependencies
+        run: |
+          brew install portaudio
 
-    - name: Upload macOS artifact
-      if: ${{ github.event.inputs.upload_artifact != 'false' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-build
-        path: |
-          dist/SystemService
-          dist/*
-        retention-days: 30
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pyinstaller==6.3.0
+          pip install -r requirements.txt || true
+          pip install kivy pyobjus pyobjc plyer
+        continue-on-error: true
 
-  build-android:
-    runs-on: ubuntu-22.04
-    name: Build Android APK
-    
+      - name: Create Kivy hook for PyInstaller
+        run: |
+          mkdir -p hooks
+          echo "from PyInstaller.utils.hooks import collect_data_files, collect_submodules" > hooks/hook-kivy.py
+          echo "datas = collect_data_files('kivy')" >> hooks/hook-kivy.py
+          echo "hiddenimports = collect_submodules('kivy')" >> hooks/hook-kivy.py
+          echo "hiddenimports += ['pyobjus', 'rubicon', 'rubicon.objc']" >> hooks/hook-kivy.py
+
+      - name: Build macOS executable
+        run: |
+          pyinstaller --onefile \
+            --windowed \
+            --name "SystemService" \
+            --add-data "requirements.txt:." \
+            --hidden-import kivy \
+            --hidden-import kivy.core.window \
+            --hidden-import kivy.core.text \
+            --hidden-import kivy.core.image \
+            --hidden-import kivy.core.audio \
+            --hidden-import kivy.core.video \
+            --hidden-import kivy.core.clipboard \
+            --hidden-import kivy.core.spelling \
+            --hidden-import kivy.uix.label \
+            --hidden-import kivy.uix.button \
+            --hidden-import kivy.uix.boxlayout \
+            --hidden-import kivy.uix.textinput \
+            --hidden-import kivy.uix.scrollview \
+            --hidden-import kivy.uix.popup \
+            --hidden-import kivy.uix.switch \
+            --hidden-import kivy.uix.progressbar \
+            --hidden-import kivy.uix.screenmanager \
+            --hidden-import kivy.uix.image \
+            --hidden-import kivy.uix.camera \
+            --hidden-import kivy.uix.video \
+            --hidden-import kivy.uix.videoplayer \
+            --hidden-import pyobjus \
+            --hidden-import rubicon \
+            --hidden-import rubicon.objc \
+            --hidden-import plyer \
+            --hidden-import plyer.platforms.macosx \
+            --hidden-import pyaudio \
+            --hidden-import cv2 \
+            --hidden-import sounddevice \
+            --hidden-import numpy \
+            --hidden-import PIL \
+            --hidden-import PIL.ImageGrab \
+            --hidden-import scapy.all \
+            --hidden-import netifaces \
+            --hidden-import dns.resolver \
+            --hidden-import cryptography.fernet \
+            --hidden-import psutil \
+            --hidden-import requests \
+            --hidden-import sqlite3 \
+            --hidden-import json \
+            --hidden-import base64 \
+            --hidden-import hashlib \
+            --hidden-import uuid \
+            --hidden-import re \
+            --hidden-import socket \
+            --hidden-import platform \
+            --hidden-import getpass \
+            --hidden-import subprocess \
+            --hidden-import shutil \
+            --hidden-import tempfile \
+            --hidden-import threading \
+            --hidden-import queue \
+            --hidden-import schedule \
+            --hidden-import paramiko \
+            --hidden-import mechanize \
+            --hidden-import socks \
+            --hidden-import logging \
+            --hidden-import nmap \
+            --hidden-import whois \
+            --hidden-import urllib.parse \
+            --hidden-import mimetypes \
+            --hidden-import pathlib \
+            --hidden-import glob \
+            --hidden-import fnmatch \
+            --hidden-import ctypes \
+            --hidden-import email \
+            --hidden-import smtplib \
+            --hidden-import ftplib \
+            --hidden-import xml.etree.ElementTree \
+            --hidden-import csv \
+            --hidden-import zipfile \
+            --hidden-import io \
+            --hidden-import random \
+            --hidden-import string \
+            --hidden-import datetime \
+            --hidden-import time \
+            --hidden-import os \
+            --hidden-import sys \
+            --collect-all kivy \
+            --collect-all plyer \
+            --collect-all pyobjus \
+            --collect-all cryptography \
+            --collect-all PIL \
+            --collect-all cv2 \
+            --collect-all numpy \
+            --collect-all sounddevice \
+            --collect-all pyaudio \
+            --collect-all scapy \
+            --collect-all psutil \
+            --collect-all requests \
+            --collect-all urllib3 \
+            --collect-all certifi \
+            --collect-all idna \
+            --collect-all charset_normalizer \
+            --additional-hooks-dir=hooks \
+            main.py
+
+      - name: Upload macOS executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-exe
+          path: dist/SystemService
+          retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          git \
-          python3-dev \
-          autoconf \
-          automake \
-          libtool \
-          pkg-config \
-          zlib1g-dev \
-          libncurses5-dev \
-          libtinfo5 \
-          cmake \
-          libffi-dev \
-          libssl-dev \
-          unzip \
-          wget \
-          ccache \
-          libltdl-dev \
-          libsqlite3-dev \
-          libbz2-dev \
-          libreadline-dev \
-          libjpeg-dev \
-          libfreetype6-dev \
-          libpng-dev \
-          patchelf \
-          lld
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-linux-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-linux-
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        packages: |
-          platforms;android-34
-          build-tools;34.0.0
-          ndk;25.2.9519653
-          platform-tools
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pip \
+            python3-dev \
+            build-essential \
+            libportaudio2 \
+            portaudio19-dev \
+            libasound2-dev \
+            libpulse-dev \
+            libgl1-mesa-dev \
+            libgles2-mesa-dev \
+            libgstreamer1.0-0 \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            libgstreamer-plugins-base1.0-dev \
+            libgstreamer1.0-dev \
+            libmtdev-dev \
+            xclip \
+            xsel \
+            libx11-dev \
+            libxext-dev \
+            libxrender-dev \
+            libxinerama-dev \
+            libxi-dev \
+            libxrandr-dev \
+            libxcursor-dev \
+            libxcomposite-dev \
+            libxdamage-dev \
+            libxfixes-dev \
+            libxss-dev \
+            libxtst-dev \
+            libdbus-1-dev \
+            libglib2.0-dev \
+            libudev-dev \
+            libusb-1.0-0-dev \
+            libssl-dev \
+            libffi-dev \
+            pkg-config
 
-    - name: Accept Android SDK Licenses
-      run: |
-        yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses || true
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pyinstaller==6.3.0
+          pip install -r requirements.txt
+        continue-on-error: true
 
-    - name: Install Android SDK components
-      run: |
-        ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platform-tools"
-        ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platforms;android-34"
-        ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0"
-        ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653"
+      - name: Create Kivy hook for PyInstaller
+        run: |
+          mkdir -p hooks
+          echo "from PyInstaller.utils.hooks import collect_data_files, collect_submodules" > hooks/hook-kivy.py
+          echo "datas = collect_data_files('kivy')" >> hooks/hook-kivy.py
+          echo "hiddenimports = collect_submodules('kivy')" >> hooks/hook-kivy.py
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
-        pip install cython==3.0.8
-        pip install buildozer==1.5.0
-        pip install python-for-android==2024.1.21
-        pip install virtualenv
+      - name: Build Linux executable
+        run: |
+          pyinstaller --onefile \
+            --windowed \
+            --name "SystemService" \
+            --add-data "requirements.txt:." \
+            --hidden-import kivy \
+            --hidden-import kivy.core.window \
+            --hidden-import kivy.core.text \
+            --hidden-import kivy.core.image \
+            --hidden-import kivy.core.audio \
+            --hidden-import kivy.core.video \
+            --hidden-import kivy.core.clipboard \
+            --hidden-import kivy.core.spelling \
+            --hidden-import kivy.uix.label \
+            --hidden-import kivy.uix.button \
+            --hidden-import kivy.uix.boxlayout \
+            --hidden-import kivy.uix.textinput \
+            --hidden-import kivy.uix.scrollview \
+            --hidden-import kivy.uix.popup \
+            --hidden-import kivy.uix.switch \
+            --hidden-import kivy.uix.progressbar \
+            --hidden-import kivy.uix.screenmanager \
+            --hidden-import kivy.uix.image \
+            --hidden-import kivy.uix.camera \
+            --hidden-import kivy.uix.video \
+            --hidden-import kivy.uix.videoplayer \
+            --hidden-import pynput.keyboard \
+            --hidden-import pynput.mouse \
+            --hidden-import pyaudio \
+            --hidden-import cv2 \
+            --hidden-import sounddevice \
+            --hidden-import numpy \
+            --hidden-import PIL \
+            --hidden-import PIL.ImageGrab \
+            --hidden-import scapy.all \
+            --hidden-import netifaces \
+            --hidden-import dns.resolver \
+            --hidden-import browser_cookie3 \
+            --hidden-import cryptography.fernet \
+            --hidden-import discord_webhook \
+            --hidden-import telebot \
+            --hidden-import dropbox \
+            --hidden-import mss \
+            --hidden-import pyscreenshot \
+            --hidden-import GPUtil \
+            --hidden-import psutil \
+            --hidden-import requests \
+            --hidden-import sqlite3 \
+            --hidden-import json \
+            --hidden-import base64 \
+            --hidden-import hashlib \
+            --hidden-import uuid \
+            --hidden-import re \
+            --hidden-import socket \
+            --hidden-import platform \
+            --hidden-import getpass \
+            --hidden-import subprocess \
+            --hidden-import shutil \
+            --hidden-import tempfile \
+            --hidden-import threading \
+            --hidden-import queue \
+            --hidden-import schedule \
+            --hidden-import paramiko \
+            --hidden-import mechanize \
+            --hidden-import socks \
+            --hidden-import stem \
+            --hidden-import logging \
+            --hidden-import nmap \
+            --hidden-import whois \
+            --hidden-import urllib.parse \
+            --hidden-import mimetypes \
+            --hidden-import pathlib \
+            --hidden-import glob \
+            --hidden-import fnmatch \
+            --hidden-import ctypes \
+            --hidden-import email \
+            --hidden-import smtplib \
+            --hidden-import ftplib \
+            --hidden-import xml.etree.ElementTree \
+            --hidden-import csv \
+            --hidden-import zipfile \
+            --hidden-import io \
+            --hidden-import random \
+            --hidden-import string \
+            --hidden-import datetime \
+            --hidden-import time \
+            --hidden-import os \
+            --hidden-import sys \
+            --collect-all kivy \
+            --collect-all plyer \
+            --collect-all pynput \
+            --collect-all cryptography \
+            --collect-all PIL \
+            --collect-all cv2 \
+            --collect-all numpy \
+            --collect-all sounddevice \
+            --collect-all pyaudio \
+            --collect-all scapy \
+            --collect-all discord_webhook \
+            --collect-all telebot \
+            --collect-all dropbox \
+            --collect-all mss \
+            --collect-all psutil \
+            --collect-all requests \
+            --collect-all urllib3 \
+            --collect-all certifi \
+            --collect-all idna \
+            --collect-all charset_normalizer \
+            --additional-hooks-dir=hooks \
+            main.py
 
-    - name: Create build directories
-      run: |
-        mkdir -p .buildozer
-        mkdir -p secret
-        mkdir -p assets
-
-    - name: Create placeholder files
-      run: |
-        python -c "from PIL import Image; img = Image.new('RGB', (1080, 1920), '#000000'); img.save('presplash.png')" 2>/dev/null || echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > presplash.png
-        python -c "from PIL import Image; img = Image.new('RGB', (512, 512), '#1a1a2e'); img.save('icon.png')" 2>/dev/null || echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > icon.png
-
-    - name: Create admin hash
-      run: |
-        python -c "
-        import bcrypt
-        pwd = b'admin123'
-        hsh = bcrypt.hashpw(pwd, bcrypt.gensalt())
-        with open('secret/admin.hash', 'wb') as f:
-            f.write(hsh)
-        "
-
-    - name: Create Buildozer spec
-      run: |
-        cat > buildozer.spec << 'EOF'
-        [app]
-        title = System Service
-        package.name = com.android.system.helper
-        package.domain = com.android
-        source.dir = .
-        source.include_exts = py,png,jpg,kv,atlas,txt,json
-        version = 1.0.0
-        
-        requirements = python3,kivy==2.3.0,pyjnius==1.6.1,plyer==2.1.0,android==1.0,requests==2.31.0,cryptography==42.0.5,Pillow==10.2.0,numpy==1.26.4,bcrypt==4.1.2
-        
-        fullscreen = 1
-        orientation = portrait
-        window_state = hidden
-        
-        presplash.filename = %(source.dir)s/presplash.png
-        presplash.color = #000000
-        icon.filename = %(source.dir)s/icon.png
-        
-        log_level = 0
-        
-        [buildozer]
-        log_level = 0
-        
-        [buildozer:android]
-        android.api = 34
-        android.minapi = 21
-        android.ndk = 25.2.9519653
-        android.sdk = 34.0.0
-        android.accept_sdk_license = True
-        
-        android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,ACCESS_COARSE_LOCATION,ACCESS_FINE_LOCATION,CAMERA,RECORD_AUDIO,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,READ_PHONE_STATE,READ_CONTACTS,WRITE_CONTACTS,READ_SMS,SEND_SMS,RECEIVE_SMS,READ_CALL_LOG,CALL_PHONE,BLUETOOTH,VIBRATE,WAKE_LOCK,SYSTEM_ALERT_WINDOW,REQUEST_INSTALL_PACKAGES,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,POST_NOTIFICATIONS
-        
-        android.features = android.hardware.camera,android.hardware.microphone,android.hardware.location,android.hardware.wifi,android.hardware.bluetooth,android.hardware.telephony,android.hardware.touchscreen
-        
-        android.services = myservice,foregroundservice
-        android.arch = armeabi-v7a,arm64-v8a
-        android.allow_backup = False
-        android.large_heap = True
-        android.multidex = True
-        
-        p4a.branch = master
-        p4a.bootstrap = sdl2
-        
-        android.activity_launch_mode = singleTask
-        android.wakelock = True
-        EOF
-
-    - name: Build APK
-      run: |
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-        export JAVA_HOME=$JAVA_HOME_17_X64
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
-        export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
-        buildozer -v android debug 2>&1 | tee build.log
-
-    - name: Check build log for errors
-      if: failure()
-      run: |
-        echo "Build failed. Checking logs above exit code line for errors..."
-        tail -n 50 build.log
-
-    - name: Upload Android artifact
-      if: ${{ github.event.inputs.upload_artifact != 'false' }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: android-build
-        path: |
-          bin/*.apk
-          .buildozer/android/platform/build-*/dists/*/bin/*.apk
-        retention-days: 30
+      - name: Upload Linux executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-exe
+          path: dist/SystemService
+          retention-days: 30
 
   create-release:
-    needs: [build-windows, build-linux, build-macos, build-android]
-    if: ${{ github.event.inputs.release == 'true' || startsWith(github.ref, 'refs/tags/v') }}
+    needs: [build-android, build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: release-assets
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: Organize release assets
-      run: |
-        mkdir -p release
-        find release-assets -name "*.exe" -exec cp {} release/ \;
-        find release-assets -name "system_service" -exec cp {} release/ \;
-        find release-assets -name "SystemService" -exec cp {} release/ \;
-        find release-assets -name "*.apk" -exec cp {} release/ \;
-        ls -la release/
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v2
-      with:
-        name: Release ${{ github.ref_name }}
-        body: |
-          Build Release ${{ github.ref_name }}
-          
-          Build Date: ${{ github.event.repository.updated_at }}
-          Commit: ${{ github.sha }}
-          
-          Assets:
-          - Windows Executable
-          - Linux Executable
-          - macOS Executable
-          - Android APK
-        files: |
-          release/*
-        draft: false
-        prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  cleanup:
-    needs: [create-release]
-    if: always()
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    
-    steps:
-    - name: Delete old artifacts
-      uses: geekyeggo/delete-artifact@v5
-      with:
-        name: |
-          windows-build
-          linux-build
-          macos-build
-          android-build
-        failOnError: false
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/android-apk/*.apk
+            artifacts/windows-exe/*.exe
+            artifacts/macos-exe/SystemService
+            artifacts/linux-exe/SystemService
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
