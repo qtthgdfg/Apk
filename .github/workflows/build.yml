@@ -107,6 +107,10 @@ jobs:
           export PATH=$PATH:~/.local/bin
           buildozer -v android debug
 
+      - name: Accept Android SDK licenses
+        run: |
+         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
