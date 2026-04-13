@@ -85,6 +85,7 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-33 build-tools;33.0.0 platform-tools ndk;25.2.9519653'
+          sdk-version: '34'
 
       - name: Accept Android SDK licenses
         run: |
@@ -98,50 +99,40 @@ jobs:
       - name: Create buildozer spec
         run: |
           buildozer init
-          sed -i 's/^title = .*/title = System Service/' buildozer.spec
-          sed -i 's/^package.name = .*/package.name = systemservice/' buildozer.spec
-          sed -i 's/^package.domain = .*/package.domain = org.example/' buildozer.spec
-          sed -i 's/^source.dir = .*/source.dir = ./' buildozer.spec
-          sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,kv,atlas,json,txt/' buildozer.spec
-          sed -i 's/^version = .*/version = 1.0/' buildozer.spec
-          sed -i 's/^requirements = .*/requirements = python3,kivy==2.3.0,pyjnius==1.6.1,requests==2.31.0,cryptography==41.0.7,Pillow==10.1.0,plyer,android/' buildozer.spec
-          sed -i 's/^presplash.filename = .*/presplash.filename = %(source.dir)s\/presplash.png/' buildozer.spec
-          sed -i 's/^icon.filename = .*/icon.filename = %(source.dir)s\/icon.png/' buildozer.spec
-          sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
-          sed -i 's/^osx.python_version = .*/osx.python_version = 3/' buildozer.spec
-          sed -i 's/^osx.kivy_version = .*/osx.kivy_version = 2.3.0/' buildozer.spec
-          sed -i 's/^fullscreen = .*/fullscreen = 0/' buildozer.spec
-          sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
-          sed -i 's/^warn_on_root = .*/warn_on_root = 1/' buildozer.spec
-          sed -i 's/^android.api = .*/android.api = 33/' buildozer.spec
-          sed -i 's/^android.minapi = .*/android.minapi = 21/' buildozer.spec
-          sed -i 's/^android.ndk = .*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/^android.sdk = .*/android.sdk = 34/' buildozer.spec
-          sed -i 's/^android.entrypoint = .*/android.entrypoint = main.py/' buildozer.spec
-          sed -i 's/^android.arch = .*/android.arch = arm64-v8a/' buildozer.spec
-          sed -i 's/^android.allow_backup = .*/android.allow_backup = True/' buildozer.spec
-          sed -i 's/^android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,CAMERA,RECORD_AUDIO,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION,VIBRATE,WAKE_LOCK,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,SYSTEM_ALERT_WINDOW,REQUEST_INSTALL_PACKAGES/' buildozer.spec
-          sed -i 's/^android.features = .*/android.features = android.hardware.camera,android.hardware.camera.autofocus,android.hardware.microphone,android.hardware.location,android.hardware.location.gps,android.hardware.location.network/' buildozer.spec
-          sed -i 's/^android.gradle_dependencies = .*/android.gradle_dependencies = /' buildozer.spec
-          sed -i 's/^android.add_src = .*/android.add_src = /' buildozer.spec
-          sed -i 's/^android.add_jars = .*/android.add_jars = /' buildozer.spec
-          sed -i 's/^android.add_aars = .*/android.add_aars = /' buildozer.spec
-          sed -i 's/^android.service = .*/android.service = foreground/' buildozer.spec
-          sed -i 's/^android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
-          sed -i 's/^p4a.branch = .*/p4a.branch = develop/' buildozer.spec
-          sed -i 's/^android.skip_update = .*/android.skip_update = True/' buildozer.spec
+          # Use a more robust method to set options
+          buildozer set title 'System Service' buildozer.spec
+          buildozer set package.name systemservice buildozer.spec
+          buildozer set package.domain org.example buildozer.spec
+          buildozer set source.dir . buildozer.spec
+          buildozer set source.include_exts py,png,jpg,kv,atlas,json,txt buildozer.spec
+          buildozer set version 1.0 buildozer.spec
+          buildozer set requirements python3,kivy==2.3.0,pyjnius==1.6.1,requests==2.31.0,cryptography==41.0.7,Pillow==10.1.0,plyer,android buildozer.spec
+          buildozer set orientation portrait buildozer.spec
+          buildozer set fullscreen 0 buildozer.spec
+          buildozer set log_level 2 buildozer.spec
+          buildozer set android.api 33 buildozer.spec
+          buildozer set android.minapi 21 buildozer.spec
+          buildozer set android.ndk 25b buildozer.spec
+          buildozer set android.sdk 34 buildozer.spec
+          buildozer set android.entrypoint main.py buildozer.spec
+          buildozer set android.arch arm64-v8a buildozer.spec
+          buildozer set android.allow_backup True buildozer.spec
+          buildozer set android.permissions INTERNET,ACCESS_NETWORK_STATE,ACCESS_WIFI_STATE,CAMERA,RECORD_AUDIO,READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION,VIBRATE,WAKE_LOCK,RECEIVE_BOOT_COMPLETED,FOREGROUND_SERVICE,SYSTEM_ALERT_WINDOW,REQUEST_INSTALL_PACKAGES buildozer.spec
+          buildozer set android.features android.hardware.camera,android.hardware.camera.autofocus,android.hardware.microphone,android.hardware.location,android.hardware.location.gps,android.hardware.location.network buildozer.spec
+          buildozer set android.service foreground buildozer.spec
+          buildozer set android.accept_sdk_license True buildozer.spec
+          buildozer set p4a.branch develop buildozer.spec
+          buildozer set android.skip_update True buildozer.spec
 
       - name: Create dummy icon and presplash
         run: |
+          # Minimal PNG file (1x1 pixel)
           echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" | base64 -d > icon.png
           cp icon.png presplash.png
 
       - name: Build APK with Buildozer
         env:
           BUILDOZER_WARN_ON_ROOT: 0
-          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_ROOT }}
         run: |
           export PATH=$PATH:~/.local/bin
           buildozer -v android debug
@@ -163,11 +154,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -185,6 +171,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
+          # Filter out packages incompatible with Windows
           (Get-Content requirements.txt) | Where-Object {
             $_ -notmatch 'python-for-android' -and 
             $_ -notmatch 'pyjnius' -and 
@@ -200,7 +187,7 @@ jobs:
       - name: Build Windows executable
         run: |
           pyinstaller --onefile `
-            --windowed `
+            --noconsole `
             --name "SystemService" `
             --add-data "requirements.txt;." `
             --hidden-import kivy `
@@ -343,11 +330,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -369,6 +351,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
+          # Remove Windows/Android specific packages
           grep -v -e 'python-for-android' -e 'pyjnius' -e 'android' -e 'pywin32' -e 'sqlite3==' requirements.txt > requirements-macos.txt || true
           pip install -r requirements-macos.txt || true
           pip install kivy pyobjus pyobjc plyer
@@ -380,10 +363,6 @@ jobs:
             --windowed \
             --name "SystemService" \
             --add-data "requirements.txt:." \
-            --add-binary "/usr/local/lib/libSDL2-2.0.0.dylib:." \
-            --add-binary "/usr/local/lib/libSDL2_image-2.0.0.dylib:." \
-            --add-binary "/usr/local/lib/libSDL2_mixer-2.0.0.dylib:." \
-            --add-binary "/usr/local/lib/libSDL2_ttf-2.0.0.dylib:." \
             --hidden-import kivy \
             --hidden-import kivy.core.window \
             --hidden-import kivy.core.text \
@@ -493,11 +472,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
 
       - name: Set up Python
         uses: actions/setup-python@v5
