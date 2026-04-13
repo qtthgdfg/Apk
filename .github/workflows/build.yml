@@ -86,6 +86,11 @@ jobs:
         with:
           packages: 'platforms;android-33 build-tools;33.0.0 platform-tools ndk;25.2.9519653'
 
+      - name: Accept Android SDK licenses
+        run: |
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$ANDROID_SDK_ROOT || true
+
       - name: Create buildozer spec
         run: |
           buildozer init
@@ -171,11 +176,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-windows-
 
-      - name: Install Python dependencies
+      - name: Install Python dependencies (filtered for Windows)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
-          pip install -r requirements.txt
+          # Filter out Android-only packages from requirements.txt
+          (Get-Content requirements.txt) -notmatch 'python-for-android|pyjnius|android' | Out-File requirements-windows.txt
+          pip install -r requirements-windows.txt
         continue-on-error: false
 
       - name: Create Kivy hook for PyInstaller
@@ -356,11 +363,13 @@ jobs:
         run: |
           brew install portaudio sdl2 sdl2_image sdl2_mixer sdl2_ttf gstreamer
 
-      - name: Install Python dependencies
+      - name: Install Python dependencies (filtered for macOS)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
-          pip install -r requirements.txt || true
+          # Filter out Android-only packages
+          grep -v 'python-for-android\|pyjnius\|android' requirements.txt > requirements-macos.txt || true
+          pip install -r requirements-macos.txt || true
           pip install kivy pyobjus pyobjc plyer
         continue-on-error: false
 
@@ -553,11 +562,12 @@ jobs:
             libffi-dev \
             pkg-config
 
-      - name: Install Python dependencies
+      - name: Install Python dependencies (filtered for Linux)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
-          pip install -r requirements.txt
+          grep -v 'python-for-android\|pyjnius\|android' requirements.txt > requirements-linux.txt || true
+          pip install -r requirements-linux.txt
         continue-on-error: false
 
       - name: Create Kivy hook for PyInstaller
