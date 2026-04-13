@@ -33,4 +33,3 @@ wmi==1.5.1
 pypiwin32==223
 pywin32==306
 browser-cookie3==0.19.1
-sqlite3==2.6.0
