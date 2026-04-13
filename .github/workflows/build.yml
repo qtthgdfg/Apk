@@ -86,33 +86,86 @@ jobs:
           export ANDROID_HOME="$HOME/.buildozer/android/platform/android-sdk"
           mkdir -p $ANDROID_HOME
           
+          # Download command-line tools
           cd $ANDROID_HOME
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           
+          # Check if download succeeded
           if [ ! -f commandlinetools-linux-11076708_latest.zip ]; then
             echo "Failed to download command line tools"
             exit 1
           fi
           
+          # Unzip and check structure
           unzip -q commandlinetools-linux-11076708_latest.zip
           rm commandlinetools-linux-11076708_latest.zip
           
-          mkdir -p tools
-          cp -r cmdline-tools/latest/* tools/
+          # Debug: Show what was extracted
+          echo "Extracted contents:"
+          ls -la
           
-          if [ ! -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then
-            echo "sdkmanager not found at expected location"
-            exit 1
+          # The zip extracts to 'cmdline-tools' directly, not 'cmdline-tools/latest'
+          # Check if 'cmdline-tools' exists
+          if [ -d "cmdline-tools" ]; then
+            echo "Found cmdline-tools directory"
+            ls -la cmdline-tools/
+            
+            # Create tools directory and copy contents
+            mkdir -p tools
+            cp -r cmdline-tools/* tools/ 2>/dev/null || cp -r cmdline-tools/bin tools/ 2>/dev/null
           fi
           
-          echo "Accepting Android SDK licenses..."
+          # Alternative: The zip might extract bin/ and lib/ directly
+          if [ -d "bin" ] && [ ! -d "tools/bin" ]; then
+            echo "Found bin directory directly"
+            mkdir -p tools
+            cp -r bin tools/
+            cp -r lib tools/ 2>/dev/null
+          fi
+          
+          # Verify sdkmanager exists
+          echo "Looking for sdkmanager..."
+          find $ANDROID_HOME -name "sdkmanager" 2>/dev/null
+          
+          if [ ! -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then
+            # Try to create the expected structure
+            echo "Creating expected sdkmanager location..."
+            mkdir -p tools/bin
+            
+            # Find and copy sdkmanager
+            SDKMANAGER_PATH=$(find $ANDROID_HOME -name "sdkmanager" -type f 2>/dev/null | head -1)
+            if [ -n "$SDKMANAGER_PATH" ]; then
+              echo "Found sdkmanager at: $SDKMANAGER_PATH"
+              cp "$SDKMANAGER_PATH" tools/bin/
+              # Also copy the lib directory if it exists nearby
+              LIB_PATH=$(dirname $(dirname "$SDKMANAGER_PATH"))/lib
+              if [ -d "$LIB_PATH" ]; then
+                cp -r "$LIB_PATH" tools/
+              fi
+            else
+              echo "sdkmanager not found in extracted files"
+              ls -la
+              exit 1
+            fi
+          fi
+          
+          # Accept licenses by creating license files directly (most reliable method)
+          echo "Creating license files..."
           mkdir -p $ANDROID_HOME/licenses
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_HOME/licenses/android-sdk-license
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_HOME/licenses/android-sdk-license
           echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> $ANDROID_HOME/licenses/android-sdk-license
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" >> $ANDROID_HOME/licenses/android-sdk-license
           
-          $ANDROID_HOME/tools/bin/sdkmanager --licenses < /dev/null || true
-          $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" < /dev/null || true
+          # Try to run sdkmanager if it exists
+          if [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then
+            echo "Running sdkmanager to install components..."
+            $ANDROID_HOME/tools/bin/sdkmanager --licenses < /dev/null 2>/dev/null || true
+            $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" < /dev/null 2>/dev/null || true
+          else
+            echo "sdkmanager not found at $ANDROID_HOME/tools/bin/sdkmanager"
+            echo "But license files are created, continuing anyway..."
+          fi
 
       - name: Create buildozer spec
         run: |
