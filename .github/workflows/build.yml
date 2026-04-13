@@ -1,26 +1,126 @@
-# Buildozer Configuration
-# This section defines the buildozer commands for the configuration options.
+name: Build Multi‑Platform Executables & APK
 
-buildozer set title=MyApp buildozer.spec
-buildozer set package.name=myapp buildozer.spec
-buildozer set package.domain=com.example buildozer.spec
-buildozer set source.dir=./source buildozer.spec
-buildozer set source.include_exts=py,png,jpg,kv,atlas buildozer.spec
-buildozer set version=1.0 buildozer.spec
-buildozer set requirements=python3,kivy buildozer.spec
-buildozer set orientation=portrait buildozer.spec
-buildozer set fullscreen=0 buildozer.spec
-buildozer set log_level=2 buildozer.spec
-buildozer set android.api=28 buildozer.spec
-buildozer set android.minapi=21 buildozer.spec
-buildozer set android.ndk=20.0.0 buildozer.spec
-buildozer set android.sdk=28 buildozer.spec
-buildozer set android.entrypoint=org.kivy.android.PythonActivity buildozer.spec
-buildozer set android.arch=armeabi-v7a buildozer.spec
-buildozer set android.allow_backup=1 buildozer.spec
-buildozer set android.permissions=INTERNET,WRITE_EXTERNAL_STORAGE buildozer.spec
-buildozer set android.features=android.hardware.location.buildozer.spec
-buildozer set android.service=ServiceName buildozer.spec
-buildozer set android.accept_sdk_license=1 buildozer.spec
-buildozer set p4a.branch=develop buildozer.spec
-buildozer set android.skip_update=1 buildozer.spec
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:   # Allow manual trigger
+
+jobs:
+  # ------------------------------------------------------------
+  # DESKTOP BUILDS (Windows, macOS, Linux) via PyInstaller
+  # ------------------------------------------------------------
+  build-desktop:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: app-windows
+            executable_name: app.exe
+            pyinstaller_extra: ""
+          - os: macos-latest
+            artifact_name: app-macos
+            executable_name: app
+            pyinstaller_extra: ""
+          - os: ubuntu-latest
+            artifact_name: app-linux
+            executable_name: app
+            pyinstaller_extra: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'   # Compatible with most packages
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev python3-dev libgl1-mesa-glx libglib2.0-0
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install portaudio
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --name ${{ matrix.executable_name }} main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.executable_name }}
+
+  # ------------------------------------------------------------
+  # ANDROID BUILD (APK) via Buildozer
+  # ------------------------------------------------------------
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Buildozer & dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk
+          pip install buildozer cython
+
+      - name: Build APK with Buildozer
+        run: |
+          buildozer android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-android
+          path: bin/*.apk
+
+  # ------------------------------------------------------------
+  # RELEASE (only on tag push)
+  # ------------------------------------------------------------
+  release:
+    name: Create GitHub Release
+    needs: [build-desktop, build-android]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/app-windows/*.exe
+            artifacts/app-macos/app
+            artifacts/app-linux/app
+            artifacts/app-android/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
