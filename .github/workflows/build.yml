@@ -88,7 +88,11 @@ jobs:
 
       - name: Accept Android SDK licenses
         run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          mkdir -p $ANDROID_SDK_ROOT/licenses
+          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
+          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$ANDROID_SDK_ROOT || true
 
       - name: Create buildozer spec
@@ -176,12 +180,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-windows-
 
-      - name: Install Python dependencies (filtered for Windows)
+      - name: Install Python dependencies (Windows only)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
-          # Filter out Android-only packages from requirements.txt
-          (Get-Content requirements.txt) -notmatch 'python-for-android|pyjnius|android' | Out-File requirements-windows.txt
+          # Create filtered requirements excluding Android/Linux/macOS specific packages
+          (Get-Content requirements.txt) | Where-Object {
+            $_ -notmatch 'python-for-android' -and 
+            $_ -notmatch 'pyjnius' -and 
+            $_ -notmatch 'android' -and
+            $_ -notmatch 'pyobjus' -and
+            $_ -notmatch 'pyobjc' -and
+            $_ -notmatch 'sqlite3==' -and
+            $_ -notmatch '^pywin32'
+          } | Out-File requirements-windows.txt -Encoding utf8
           pip install -r requirements-windows.txt
         continue-on-error: false
 
@@ -259,7 +271,6 @@ jobs:
             --hidden-import GPUtil `
             --hidden-import psutil `
             --hidden-import requests `
-            --hidden-import sqlite3 `
             --hidden-import json `
             --hidden-import base64 `
             --hidden-import hashlib `
@@ -363,12 +374,11 @@ jobs:
         run: |
           brew install portaudio sdl2 sdl2_image sdl2_mixer sdl2_ttf gstreamer
 
-      - name: Install Python dependencies (filtered for macOS)
+      - name: Install Python dependencies (macOS only)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
-          # Filter out Android-only packages
-          grep -v 'python-for-android\|pyjnius\|android' requirements.txt > requirements-macos.txt || true
+          grep -v -e 'python-for-android' -e 'pyjnius' -e 'android' -e 'pywin32' -e 'sqlite3==' requirements.txt > requirements-macos.txt || true
           pip install -r requirements-macos.txt || true
           pip install kivy pyobjus pyobjc plyer
         continue-on-error: false
@@ -429,7 +439,6 @@ jobs:
             --hidden-import cryptography.fernet \
             --hidden-import psutil \
             --hidden-import requests \
-            --hidden-import sqlite3 \
             --hidden-import json \
             --hidden-import base64 \
             --hidden-import hashlib \
@@ -450,42 +459,42 @@ jobs:
             --hidden-import logging \
             --hidden-import nmap \
             --hidden-import whois \
-            --hidden-import urllib.parse \
-            --hidden-import mimetypes \
-            --hidden-import pathlib \
-            --hidden-import glob \
-            --hidden-import fnmatch \
-            --hidden-import ctypes \
-            --hidden-import email \
-            --hidden-import smtplib \
-            --hidden-import ftplib \
-            --hidden-import xml.etree.ElementTree \
-            --hidden-import csv \
-            --hidden-import zipfile \
-            --hidden-import io \
-            --hidden-import random \
-            --hidden-import string \
-            --hidden-import datetime \
-            --hidden-import time \
-            --hidden-import os \
-            --hidden-import sys \
-            --collect-all kivy \
-            --collect-all plyer \
-            --collect-all pyobjus \
-            --collect-all cryptography \
-            --collect-all PIL \
-            --collect-all cv2 \
-            --collect-all numpy \
-            --collect-all sounddevice \
-            --collect-all pyaudio \
-            --collect-all scapy \
-            --collect-all psutil \
-            --collect-all requests \
-            --collect-all urllib3 \
-            --collect-all certifi \
-            --collect-all idna \
-            --collect-all charset_normalizer \
-            --additional-hooks-dir=hooks \
+            --hidden-import urllib.parse `
+            --hidden-import mimetypes `
+            --hidden-import pathlib `
+            --hidden-import glob `
+            --hidden-import fnmatch `
+            --hidden-import ctypes `
+            --hidden-import email `
+            --hidden-import smtplib `
+            --hidden-import ftplib `
+            --hidden-import xml.etree.ElementTree `
+            --hidden-import csv `
+            --hidden-import zipfile `
+            --hidden-import io `
+            --hidden-import random `
+            --hidden-import string `
+            --hidden-import datetime `
+            --hidden-import time `
+            --hidden-import os `
+            --hidden-import sys `
+            --collect-all kivy `
+            --collect-all plyer `
+            --collect-all pyobjus `
+            --collect-all cryptography `
+            --collect-all PIL `
+            --collect-all cv2 `
+            --collect-all numpy `
+            --collect-all sounddevice `
+            --collect-all pyaudio `
+            --collect-all scapy `
+            --collect-all psutil `
+            --collect-all requests `
+            --collect-all urllib3 `
+            --collect-all certifi `
+            --collect-all idna `
+            --collect-all charset_normalizer `
+            --additional-hooks-dir=hooks `
             main.py
 
       - name: Upload macOS executable
@@ -562,11 +571,11 @@ jobs:
             libffi-dev \
             pkg-config
 
-      - name: Install Python dependencies (filtered for Linux)
+      - name: Install Python dependencies (Linux only)
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install pyinstaller==6.3.0
-          grep -v 'python-for-android\|pyjnius\|android' requirements.txt > requirements-linux.txt || true
+          grep -v -e 'python-for-android' -e 'pyjnius' -e 'android' -e 'pywin32' -e 'sqlite3==' requirements.txt > requirements-linux.txt || true
           pip install -r requirements-linux.txt
         continue-on-error: false
 
@@ -625,7 +634,6 @@ jobs:
             --hidden-import GPUtil \
             --hidden-import psutil \
             --hidden-import requests \
-            --hidden-import sqlite3 \
             --hidden-import json \
             --hidden-import base64 \
             --hidden-import hashlib \
