@@ -2242,7 +2242,7 @@ class AndroidCallLog:
                 
                 calls = []
                 if cursor and cursor.moveToFirst():
-                    do {
+                    while True:
                         number_index = cursor.getColumnIndex(android_provider.CallLog.Calls.NUMBER)
                         name_index = cursor.getColumnIndex(android_provider.CallLog.Calls.CACHED_NAME)
                         type_index = cursor.getColumnIndex(android_provider.CallLog.Calls.TYPE)
@@ -2267,7 +2267,8 @@ class AndroidCallLog:
                                 'duration': cursor.getLong(duration_index)
                             }
                             calls.append(call)
-                    } while (cursor.moveToNext())
+                    if not cursor.moveToNext():
+                        break
                     cursor.close()
                 
                 return calls
