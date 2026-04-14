@@ -2082,7 +2082,7 @@ class AndroidSMS:
                 
                 messages = []
                 if cursor and cursor.moveToFirst():
-                    do {
+                    while True:
                         body_index = cursor.getColumnIndex("body")
                         address_index = cursor.getColumnIndex("address")
                         date_index = cursor.getColumnIndex("date")
