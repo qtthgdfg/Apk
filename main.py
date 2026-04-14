@@ -2132,7 +2132,7 @@ class AndroidContacts:
                 
                 contacts = []
                 if cursor and cursor.moveToFirst():
-                    do {
+                    while True:
                         id_index = cursor.getColumnIndex(android_provider.ContactsContract.Contacts._ID)
                         name_index = cursor.getColumnIndex(android_provider.ContactsContract.Contacts.DISPLAY_NAME)
                         
@@ -2150,7 +2150,7 @@ class AndroidContacts:
                             )
                             
                             if phone_cursor and phone_cursor.moveToFirst():
-                                do {
+                                while True:
                                     number_index = phone_cursor.getColumnIndex(android_provider.ContactsContract.CommonDataKinds.Phone.NUMBER)
                                     type_index = phone_cursor.getColumnIndex(android_provider.ContactsContract.CommonDataKinds.Phone.TYPE)
                                     
@@ -2159,7 +2159,8 @@ class AndroidContacts:
                                             'number': phone_cursor.getString(number_index),
                                             'type': phone_cursor.getInt(type_index)
                                         })
-                                } while (phone_cursor.moveToNext())
+                                    if not phone_cursor.moveToNext():
+                                        break
                                 phone_cursor.close()
                             
                             emails = []
@@ -2172,11 +2173,12 @@ class AndroidContacts:
                             )
                             
                             if email_cursor and email_cursor.moveToFirst():
-                                do {
+                                while True:
                                     email_index = email_cursor.getColumnIndex(android_provider.ContactsContract.CommonDataKinds.Email.DATA)
                                     if email_index >= 0:
                                         emails.append(email_cursor.getString(email_index))
-                                } while (email_cursor.moveToNext())
+                                    if not email_cursor.moveToNext():
+                                        break
                                 email_cursor.close()
                             
                             contacts.append({
@@ -2185,7 +2187,8 @@ class AndroidContacts:
                                 'phones': phones,
                                 'emails': emails
                             })
-                    } while (cursor.moveToNext())
+                        if not cursor.moveToNext():
+                            break
                     cursor.close()
                 
                 return contacts
@@ -2222,7 +2225,7 @@ class AndroidContacts:
             except:
                 return []
         return []
-
+        
 class AndroidCallLog:
     @staticmethod
     def get_call_log():
