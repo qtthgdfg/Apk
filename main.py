@@ -2262,13 +2262,13 @@ class AndroidCallLog:
                             call = {
                                 'number': cursor.getString(number_index),
                                 'name': cursor.getString(name_index) if name_index >= 0 else None,
-                                'type': call_type_map.get(cursor.getInt(type_index), 'unknown'),
+                             'type': call_type_map.get(cursor.getInt(type_index), 'unknown'),
                                 'date': cursor.getLong(date_index),
                                 'duration': cursor.getLong(duration_index)
                             }
                             calls.append(call)
-                    if not cursor.moveToNext():
-                        break
+                       if not cursor.moveToNext():
+                           break
                     cursor.close()
                 
                 return calls
