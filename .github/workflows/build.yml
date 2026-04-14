@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     tags:
       - 'v*'
-  workflow_dispatch:   # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   # ------------------------------------------------------------
@@ -21,15 +21,12 @@ jobs:
           - os: windows-latest
             artifact_name: app-windows
             executable_name: app.exe
-            pyinstaller_extra: ""
           - os: macos-latest
             artifact_name: app-macos
             executable_name: app
-            pyinstaller_extra: ""
           - os: ubuntu-latest
             artifact_name: app-linux
             executable_name: app
-            pyinstaller_extra: ""
 
     steps:
       - name: Checkout repository
@@ -38,7 +35,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'   # Compatible with most packages
+          python-version: '3.10'
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
@@ -49,12 +46,12 @@ jobs:
       - name: Install system dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install portaudio
+          brew install portaudio || true  # Continue if already installed
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-desktop.txt
 
       - name: Build with PyInstaller
         run: |
@@ -87,6 +84,14 @@ jobs:
           sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk
           pip install buildozer cython
 
+      - name: Create Buildozer spec if missing
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+            # Update requirements line in spec file
+            sed -i 's/^requirements = .*/requirements = python3,kivy,pyjnius,requests,cryptography,Pillow,android,psutil,opencv-python,numpy,schedule,PySocks,python-telegram-bot/' buildozer.spec
+          fi
+
       - name: Build APK with Buildozer
         run: |
           buildozer android debug
@@ -110,9 +115,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
-      - name: Display structure
-        run: ls -R artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
