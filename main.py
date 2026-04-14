@@ -2096,7 +2096,7 @@ class AndroidSMS:
                                 'type': 'sent' if cursor.getInt(type_index) == 2 else 'received'
                             }
                             messages.append(message)
-                    } while (cursor.moveToNext())
+                    } while cursor.moveToNext():
                     cursor.close()
                 
                 return messages
