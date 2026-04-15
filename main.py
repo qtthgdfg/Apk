@@ -2267,8 +2267,8 @@ class AndroidCallLog:
                                 'duration': cursor.getLong(duration_index)
                             }
                             calls.append(call)
-                         if not cursor.moveToNext():
-                             break
+                            if not cursor.moveToNext():
+                                break
                      cursor.close()
                 
                 return calls
