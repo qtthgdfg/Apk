@@ -2269,7 +2269,7 @@ class AndroidCallLog:
                             calls.append(call)
                             if not cursor.moveToNext():
                                 break
-                     cursor.close()
+                        cursor.close()
                 
                 return calls
             except:
