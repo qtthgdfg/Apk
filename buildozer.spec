@@ -7,7 +7,7 @@ package.domain = org.example
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,txt,json
 version = 1.0
-requirements = python3,kivy,plyer,android,jnius,requests,cryptography,pycryptodome,pyjnius,pillow,sqlite3,openssl,libffi,sdl2_image,sdl2_mixer,sdl2_ttf
+requirements = python3,kivy,plyer,android,jnius,requests,cryptography,pycryptodome,pyjnius>=1.5.0,pillow,sqlite3,openssl,libffi,sdl2_image,sdl2_mixer,sdl2_ttf
 presplash.filename = %(source.dir)s/presplash.png
 icon.filename = %(source.dir)s/icon.png
 orientation = portrait
