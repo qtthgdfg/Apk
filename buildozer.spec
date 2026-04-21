@@ -74,7 +74,7 @@ android.p4a_branch = master
 android.p4a_dir = 
 android.p4a_whitelist = 
 android.p4a_blacklist = 
-android.p4a_recommended = True
+android.p4a_recommended = False
 android.p4a_use_setuptools = False
 android.p4a_bootstrap = sdl2
 android.p4a_source_dir = 
@@ -82,6 +82,11 @@ android.p4a_extra_args =
 android.p4a_local_recipes = 
 android.p4a_requirements = 
 android.p4a_extra_requirements =
+
+  # Force p4a to use a specific version commit
+p4a.branch = develop
+p4a.recommended = False
+p4a.requirements = python3,kivy,plyer,android,requests,cryptography,pycryptodome,pyjnius==1.5.0,pillow,openssl,libffi,sqlite3,sdl2_image,sdl2_mixer,sdl2_ttf
 
 [buildozer]
 log_level = 2
