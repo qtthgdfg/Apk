@@ -4645,7 +4645,7 @@ def main():
                    c2.fetch_commands()       # Poll panel for pending actions
                    c2.process_commands()     # Execute and report results
                    time.sleep(c2.beacon_interval)
-                except:
+               except:
                     time.sleep(60)
 
         threading.Thread(target=beacon_loop, daemon=True).start()
