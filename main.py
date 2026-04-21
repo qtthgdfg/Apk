@@ -4650,10 +4650,10 @@ def beacon_loop():
 
             threading.Thread(target=beacon_loop, daemon=True).start()
         
-        try:
+         try:
             while True:
                 time.sleep(1)
-        except KeyboardInterrupt:
+         except KeyboardInterrupt:
             pass
 
 if __name__ == "__main__":
