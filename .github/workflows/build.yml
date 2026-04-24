@@ -1,4 +1,4 @@
-name: Build Executables & APK
+name: Build Android APK
 
 on:
   push:
@@ -8,46 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
-    name: Build Windows Executable
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-desktop.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-desktop.txt
-
-      - name: Build with PyInstaller
-        env:
-          KIVY_GL_BACKEND: 'mock'
-          SDL_VIDEODRIVER: 'dummy'
-          SDL_AUDIODRIVER: 'dummy'
-          KIVY_NO_CONSOLELOG: '1'
-        run: |
-          pyinstaller --onedir --noconfirm --name app main.py
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-windows
-          path: dist/app/
-
   build-android:
     name: Build Android APK
     runs-on: ubuntu-latest
@@ -98,30 +58,18 @@ jobs:
 
       - name: Build APK with Buildozer
         run: |
-          buildozer android debug
+          buildozer android debug 2>&1 | tee buildozer.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildozer-log
+          path: buildozer.log
 
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-android
           path: bin/*.apk
-
-  release:
-    name: Create GitHub Release
-    needs: [build-windows, build-android]
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/app-windows/app/**
-            artifacts/app-android/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
