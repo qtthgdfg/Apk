@@ -81,7 +81,7 @@ android.p4a_source_dir =
 android.p4a_extra_args = 
 android.p4a_local_recipes = 
 
-p4a.requirements = python3,kivy,plyer,android,requests,cryptography,pycryptodome,pyjnius==1.5.0,pillow,openssl,libffi,sqlite3,sdl2_image,sdl2_mixer,sdl2_ttf,toml
+p4a.requirements = python3,kivy,plyer,android,requests,cryptography,pycryptodome,pyjnius==1.5.0,pillow,openssl,libffi,sqlite3,sdl2_image,sdl2_mixer,sdl2_ttf,toml,cython<3.0
 
 - name: Clean Buildozer cache
   run: rm -rf .buildozer ~/.buildozer
