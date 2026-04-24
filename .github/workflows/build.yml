@@ -1,70 +1,127 @@
-build-android:
-  name: Build Android APK
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+name: Build Executables & APK
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
-    - name: Install Buildozer and system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          git \
-          zip \
-          unzip \
-          openjdk-17-jdk \
-          autoconf \
-          automake \
-          libtool \
-          pkg-config \
-          libffi-dev \
-          libssl-dev \
-          zlib1g-dev \
-          libltdl-dev
-        pip install buildozer "cython<3.0"
+jobs:
+  build-windows:
+    name: Build Windows Executable
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Initialize Buildozer spec if missing
-      run: |
-        if [ ! -f buildozer.spec ]; then
-          buildozer init
-        fi
-        if ! grep -q "android.accept_sdk_license" buildozer.spec; then
-          echo "android.accept_sdk_license = True" >> buildozer.spec
-        else
-          sed -i 's/^android.accept_sdk_license.*/android.accept_sdk_license = True/' buildozer.spec
-        fi
-        sed -i 's/^requirements = .*/requirements = python3,kivy,pyjnius,requests,cryptography,Pillow,android,psutil,opencv-python,numpy,schedule,PySocks,python-telegram-bot,cython<3.0/' buildozer.spec
-        if ! grep -q "android.api" buildozer.spec; then
-          echo "android.api = 33" >> buildozer.spec
-        fi
-        if ! grep -q "android.ndk" buildozer.spec; then
-          echo "android.ndk = 25b" >> buildozer.spec
-        fi
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Accept Android SDK licenses
-      run: |
-        mkdir -p ~/.android
-        echo "sdkman.auto.accept.licenses=true" > ~/.android/repositories.cfg
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-desktop.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Build APK with Buildozer
-      run: |
-        buildozer android debug --verbose 2>&1 | tee buildozer.log
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-desktop.txt
 
-    - name: Upload Buildozer log on failure
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: buildozer-debug-log
-        path: buildozer.log
+      - name: Build with PyInstaller
+        env:
+          KIVY_GL_BACKEND: 'mock'
+          SDL_VIDEODRIVER: 'dummy'
+          SDL_AUDIODRIVER: 'dummy'
+          KIVY_NO_CONSOLELOG: '1'
+        run: |
+          pyinstaller --onedir --noconfirm --name app main.py
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-android
-        path: bin/*.apk
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-windows
+          path: dist/app/
+
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Buildozer and system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            libltdl-dev
+          pip install buildozer "cython<3.0"
+
+      - name: Initialize Buildozer spec if missing
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+          if ! grep -q "android.accept_sdk_license" buildozer.spec; then
+            echo "android.accept_sdk_license = True" >> buildozer.spec
+          else
+            sed -i 's/^android.accept_sdk_license.*/android.accept_sdk_license = True/' buildozer.spec
+          fi
+          sed -i 's/^requirements = .*/requirements = python3,kivy,pyjnius,requests,cryptography,Pillow,android,psutil,opencv-python,numpy,schedule,PySocks,python-telegram-bot,cython<3.0/' buildozer.spec
+
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p ~/.android
+          echo "sdkman.auto.accept.licenses=true" > ~/.android/repositories.cfg
+
+      - name: Build APK with Buildozer
+        run: |
+          buildozer android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-android
+          path: bin/*.apk
+
+  release:
+    name: Create GitHub Release
+    needs: [build-windows, build-android]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/app-windows/app/**
+            artifacts/app-android/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
