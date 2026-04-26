@@ -70,7 +70,7 @@ android.use_androidx = True
 android.javac_target = 1.8
 android.javac_source = 1.8
 android.compile_options = 
-android.p4a_branch = develop
+android.p4a_branch = master
 android.p4a_dir = 
 android.p4a_whitelist = 
 android.p4a_blacklist = 
@@ -81,10 +81,9 @@ android.p4a_source_dir =
 android.p4a_extra_args = 
 android.p4a_local_recipes = 
 
-p4a.requirements = python3,kivy,plyer,android,requests,cryptography,pycryptodome,pyjnius==1.5.0,pillow,openssl,libffi,sqlite3,sdl2_image,sdl2_mixer,sdl2_ttf,toml,cython<3.0
+requirements = python3,kivy,plyer,android,requests,cryptography,pycryptodome,pyjnius==1.5.0,pillow,openssl,libffi,sqlite3,sdl2_image,sdl2_mixer,sdl2_ttf,toml,cython<3.0
 
-- name: Clean Buildozer cache
-  run: rm -rf .buildozer ~/.buildozer
+
   
 [buildozer]
 log_level = 2
