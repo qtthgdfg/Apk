@@ -99,7 +99,6 @@ jobs:
       
       - name: Clean old buildozer cache
         run: |
-          # Remove old cached builds that might have corrupted files
           rm -rf ~/.buildozer/android/platform/build-* 2>/dev/null || true
           rm -rf .buildozer 2>/dev/null || true
           echo "Cleaned old build cache"
@@ -108,13 +107,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: ${{ runner.os }}-buildozer-v9-${{ hashFiles('.github/workflows/main.yml') }}
+          key: ${{ runner.os }}-buildozer-v10-${{ hashFiles('.github/workflows/main.yml') }}
           restore-keys: |
-            ${{ runner.os }}-buildozer-v9-
+            ${{ runner.os }}-buildozer-v10-
       
       - name: Create buildozer.spec
         run: |
-          cat > buildozer.spec << 'SPECEOF'
+          PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+          echo "Detected Python version: $PYTHON_VERSION"
+          
+          cat > buildozer.spec << SPECEOF
           [app]
 
           title = System Service
@@ -143,7 +145,7 @@ jobs:
           android.p4a_bootstrap = sdl2
           android.debug = True
 
-          requirements = python3==3.10.11,kivy,plyer,pyjnius
+          requirements = python3,kivy,plyer,pyjnius
 
           [buildozer]
           log_level = 2
@@ -157,6 +159,7 @@ jobs:
         id: build
         run: |
           echo "Starting build on $(lsb_release -ds)..."
+          echo "Python version: $(python3 --version)"
           
           export AUTORECONF=/usr/bin/autoreconf
           export AUTOCONF=/usr/bin/autoconf
@@ -197,7 +200,7 @@ jobs:
             echo "❌ No APK in bin/"
             echo ""
             echo "=== Critical errors ==="
-            grep -i "error.*\.c\|no such file" full_build.log | tail -10
+            grep -i "error\|failed\|python3 should have same version" full_build.log | grep -v "WARNING\|DEPRECATED\|prerequisites\|stty\|checking\|Cythonize" | tail -10
             echo "apk_created=false" >> $GITHUB_OUTPUT
           fi
       
